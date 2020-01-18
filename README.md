@@ -18,4 +18,5 @@ Výstupem by mělo být:
 * dokončiť testy
 * zhodnotiť Interface voči ACL service
 * premyslieť voting strategy
+* pridať akcie do ACL service
             
