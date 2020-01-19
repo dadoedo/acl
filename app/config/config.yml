@@ -68,7 +68,3 @@ swiftmailer:
 
 webpack_encore:
     output_path: "%kernel.root_dir%/../public/build/"
-
-sensio_framework_extra:
-    router:
-        annotations: false

@@ -31,9 +31,9 @@ class RoleRule
     private $rule;
 
     /**
-     * @ORM\Column(type="boolean")
+     * @ORM\Column(type="boolean", nullable=false)
      */
-    private $allowed;
+    private $allowed = true;
 
     /**
      * @return mixed

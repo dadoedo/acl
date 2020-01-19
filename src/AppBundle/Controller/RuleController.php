@@ -22,7 +22,7 @@ use Symfony\Component\HttpFoundation\Response;
 class RuleController extends Controller
 {
     /**
-     * @Route(path="/api/rule/isAllowed", name='api_rule_is_allowed')
+     * @Route(path="/api/rule/isAllowed", name="api_rule_is_allowed")
      * @Method("GET")
      * @param Request $request
      * @return Response
@@ -72,18 +72,18 @@ class RuleController extends Controller
         $em = $this->getDoctrine()->getManager();
 
         $newRule = new Rule();
-        $newRule->setName($data['name']);
-        $newRule->setDescription($data['description']);
+        $newRule->setName($data["name"]);
+        $newRule->setDescription($data["description"]);
 
-        $action = $em->getRepository(Action::class)->find($data['action_id']);
+        $action = $em->getRepository(Action::class)->find($data["action_id"]);
         $newRule->setAction($action);
-        $resource = $em->getRepository(Resource::class)->find($data['resource_id']);
+        $resource = $em->getRepository(Resource::class)->find($data["resource_id"]);
         $newRule->setResource($resource);
 
         $em->persist($newRule);
         $em->flush();
 
-        $this->addRolesToRule($data['role_id'], $newRule);
+        $this->addRolesToRule($data["role_id"], $newRule);
 
         return new JsonResponse(null, 201);
     }
@@ -109,6 +109,8 @@ class RuleController extends Controller
             return new Response('Wrong ID', 404);
         }
 
+        $em->getRepository(RoleRule::class)->deleteAllWithRule($ruleId);
+
         $em->remove($ruleToDelete);
         $em->flush();
 
@@ -124,27 +126,26 @@ class RuleController extends Controller
 
     public function editAction(Request $request)
     {
+
         $data = json_decode($request->getContent(), true);
-        if ($data['rule_id'] == null) {
+        if ($data["rule_id"] == null) {
             return new Response('Wrong/Missing ID', 404);
         }
-
         $em = $this->getDoctrine()->getManager();
-
         /** @var Rule $ruleToEdit */
-        $ruleToEdit = $em->getRepository(Rule::class)->find($data['rule_id']);
+        $ruleToEdit = $em->getRepository(Rule::class)->find($data["rule_id"]);
 
         if ($ruleToEdit == null) {
             return new Response('Wrong/Missing ID', 404);
         }
-        // todo tu by sa hodila skorej Form
-        $ruleToEdit->setName($data['name']);
-        $ruleToEdit->setDescription($data['description']);
-        $ruleToEdit->setResource($em->getRepository(Resource::class)->find($data['resource_id']));
-        $ruleToEdit->setAction($em->getRepository(Action::class)->find($data['action_id']));
+
+        $ruleToEdit->setName($data["name"]);
+        $ruleToEdit->setDescription($data["description"]);
+        $ruleToEdit->setResource($em->getRepository(Resource::class)->find($data["resource_id"]));
+        $ruleToEdit->setAction($em->getRepository(Action::class)->find($data["action_id"]));
 
         $em->getRepository(RoleRule::class)->deleteAllWithRule($ruleToEdit->getId());
-        $this->addRolesToRule($data['role_id'],$ruleToEdit);
+        $this->addRolesToRule($data["role_id"],$ruleToEdit);
 
         $em->persist($ruleToEdit);
         $em->flush();
@@ -210,7 +211,6 @@ class RuleController extends Controller
         if (!is_array($roleIds)) {
             $roleIds = [$roleIds];
         }
-
         foreach ($roleIds as $roleId) {
                 /** @var Role $role */
                 $role = $em->getRepository(Role::class)->find($roleId);

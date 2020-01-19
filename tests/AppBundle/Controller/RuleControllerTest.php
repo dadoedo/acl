@@ -6,6 +6,7 @@ use AppBundle\DataFixtures\RulesFixture;
 use AppBundle\Entity\Action;
 use AppBundle\Entity\Resource;
 use AppBundle\Entity\Role;
+use AppBundle\Entity\RoleRule;
 use AppBundle\Entity\Rule;
 use AppBundle\Entity\User;
 use Doctrine\ORM\EntityManager;
@@ -22,6 +23,15 @@ class RuleControllerTest extends FixtureAwareTestCase
 
     private function mySetUp()
     {
+        // Resources  = [Image, Article]
+        // Actions    = [View, Edit]
+        //
+        //  User |   Role
+        // ---------------
+        // James |  Editor
+        //  John |  Viewer
+        //
+        // Rule = (Editor, Edit, Article, allowed)
         $this->addFixture(new RulesFixture());
         $this->executeFixtures();
 
@@ -34,31 +44,18 @@ class RuleControllerTest extends FixtureAwareTestCase
 
     /**
      * @test OneRuleForOneRole
-     * @info Creates rule for one resource and role - tests user with that role and one without
-     * @throws ORMException
+     * @info Tests rule application on allowed user and not allowed one
      */
-    public function testOneRuleForOneRole()
+    public function testIsAllowed()
     {
         $this->mySetUp();
         $em = $this->entityManager;
 
         /** @var User $userJohn */ $userJohn = $em->getRepository('AppBundle:User')->findOneBy(["name" => "John", "surname"=>"Doe"]);
         /** @var User $userJames */ $userJames = $em->getRepository('AppBundle:User')->findOneBy(["name" => "James", "surname"=>"Dunn"]);
-        /** @var Role $roleEditor */ $roleEditor = $em->getRepository("AppBundle:Role")->findOneBy(["name" => "Editor"]);
         /** @var Resource $resourceArticle */ $resourceArticle = $em->getRepository('AppBundle:Resource')->findOneBy(["name" => "Article"]);
         /** @var Action $actionEdit */ $actionEdit = $em->getRepository('AppBundle:Action')->findOneBy(["name" => "Edit"]);
 
-        $userJames->addRole($roleEditor);
-        $em->persist($userJames);
-
-        $newRule = new Rule();
-        $newRule->setName('EditArticle');
-        $newRule->setDescription('...');
-        $newRule->setResource($resourceArticle);
-        $newRule->setAction($actionEdit);
-        $newRule->addRole($roleEditor);
-        $em->persist($newRule);
-        $em->flush();
         $client = static::createClient();
 
         $client->request('GET', '/api/rule/isAllowed?' .
@@ -86,7 +83,6 @@ class RuleControllerTest extends FixtureAwareTestCase
     /**
      * @test testRuleAfterEdit
      * @info Changes rule available for 2 roles down to 1 role, confirms for both roles
-     * @throws ORMException
      */
     public function testRuleAfterEdit()
     {
@@ -100,23 +96,8 @@ class RuleControllerTest extends FixtureAwareTestCase
         /** @var Role $roleViewer*/ $roleViewer = $em->getRepository("AppBundle:Role")->findOneBy(["name" => "Viewer"]);
         /** @var Resource $resourceArticle */ $resourceArticle = $em->getRepository('AppBundle:Resource')->findOneBy(["name" => "Article"]);
         /** @var Action $actionEdit */ $actionEdit = $em->getRepository('AppBundle:Action')->findOneBy(["name" => "Edit"]);
+        /** @var Rule $rule */ $rule = $em->getRepository(Rule::class)->findOneBy(["name" => "EditArticle"]);
 
-//        $userJames->addRole($roleEditor);
-//        $userJames->addRole($roleViewer);
-//        $userJohn->addRole($roleViewer);
-//
-//        $em->persist($userJames);
-//        $em->persist($userJohn);
-//
-//        $newRule = new Rule();
-//        $newRule->setName('EditArticle');
-//        $newRule->setDescription('...');
-//        $newRule->setResource($resourceArticle);
-//        $newRule->setAction($actionEdit);
-//        $newRule->addRole($roleEditor);
-//        $newRule->addRole($roleViewer);
-//        $em->persist($newRule);
-//        $em->flush();
         $client = static::createClient();
 
         $client->request('GET', '/api/rule/isAllowed?' .
@@ -137,12 +118,15 @@ class RuleControllerTest extends FixtureAwareTestCase
 
         $content = json_decode($client->getResponse()->getContent(), true);
         $this->assertEquals(200, $client->getResponse()->getStatusCode(), "Wrong response code");
-        $this->assertTrue($content['isAllowed'], "User should be allowed");
+        $this->assertFalse($content['isAllowed'], "User should not be allowed");
 
         $data = [
-            'rule_id' => $newRule->getId(),
-            'name' => 'EditArticleEditorOnly',
-            'role_id' => $roleEditor->getId(),
+            'rule_id' => $rule->getId(),
+            'name' => 'EditArticleEditorAndViewer',
+            'description' => '...',
+            'resource_id' => $resourceArticle->getId(),
+            'action_id' => $actionEdit->getId(),
+            'role_id' => [$roleEditor->getId(), $roleViewer->getId()],
         ];
 
         $client->request('PUT',
@@ -155,6 +139,7 @@ class RuleControllerTest extends FixtureAwareTestCase
             json_encode($data),
 
         );
+
         $this->assertEquals(200, $client->getResponse()->getStatusCode(), "Wrong response code (Rule Edit)");
 
         $client->request('GET', '/api/rule/isAllowed?' .
@@ -165,7 +150,7 @@ class RuleControllerTest extends FixtureAwareTestCase
 
         $content = json_decode($client->getResponse()->getContent(), true);
         $this->assertEquals(200, $client->getResponse()->getStatusCode(), "Wrong response code");
-        $this->assertTrue($content['isAllowed'], "User should be allowed");
+        $this->assertTrue($content['isAllowed'], "Editor should be allowed");
 
         $client->request('GET', '/api/rule/isAllowed?' .
             'user_id=' . $userJohn->getId() . '&' .
@@ -175,14 +160,13 @@ class RuleControllerTest extends FixtureAwareTestCase
 
         $content = json_decode($client->getResponse()->getContent(), true);
         $this->assertEquals(200, $client->getResponse()->getStatusCode(), "Wrong response code");
-        $this->assertFalse($content['isAllowed'], "Viewer should not be allowed");
+        $this->assertTrue($content['isAllowed'], "Viewer should be allowed");
 
     }
 
     /**
      * @test testRuleCreate
      * @info Tests rule API create new action
-     * @throws ORMException
      */
     public function testRuleCreate()
     {
@@ -192,17 +176,16 @@ class RuleControllerTest extends FixtureAwareTestCase
         $client = static::createClient();
 
         /** @var User $userJames */ $userJames = $em->getRepository('AppBundle:User')->findOneBy(["name" => "James", "surname"=>"Dunn"]);
+        /** @var User $userJohn */ $userJohn = $em->getRepository('AppBundle:User')->findOneBy(["name" => "John", "surname"=>"Doe"]);
         /** @var Role $roleViewer*/ $roleViewer = $em->getRepository("AppBundle:Role")->findOneBy(["name" => "Viewer"]);
         /** @var Role $roleEditor*/ $roleEditor = $em->getRepository("AppBundle:Role")->findOneBy(["name" => "Editor"]);
         /** @var Resource $resourceArticle */ $resourceArticle = $em->getRepository('AppBundle:Resource')->findOneBy(["name" => "Article"]);
         /** @var Action $actionEdit */ $actionEdit = $em->getRepository('AppBundle:Action')->findOneBy(["name" => "Edit"]);
 
-//        $userJames->addRole($roleViewer);
-//        $em->persist($userJames);
-//        $em->flush();
+
         $data = [
-            'name' => 'EditArticleRule',
-            'description' => 'some rule',
+            'name' => 'RandomRule',
+            'description' => '...',
             'resource_id' => $resourceArticle->getId(),
             'action_id' => $actionEdit->getId(),
             'role_id' => [$roleViewer->getId() , $roleEditor->getId()],
@@ -226,12 +209,21 @@ class RuleControllerTest extends FixtureAwareTestCase
         $content = json_decode($client->getResponse()->getContent(), true);
         $this->assertEquals(200, $client->getResponse()->getStatusCode(), "Wrong response code");
         $this->assertTrue($content['isAllowed'], "User should be allowed");
+
+        $client->request('GET', '/api/rule/isAllowed?' .
+            'user_id=' . $userJohn->getId() . '&' .
+            'action_id=' . $actionEdit->getId() . '&' .
+            'resource_id=' . $resourceArticle->getId()
+        );
+
+        $content = json_decode($client->getResponse()->getContent(), true);
+        $this->assertEquals(200, $client->getResponse()->getStatusCode(), "Wrong response code");
+        $this->assertTrue($content['isAllowed'], "User should be allowed");
     }
 
     /**
      * @test testRuleDeletion
      * @info Tests rule API deletion
-     * @throws ORMException
      */
     public function testRuleDeletion()
     {
@@ -243,18 +235,8 @@ class RuleControllerTest extends FixtureAwareTestCase
         /** @var Role $roleEditor */ $roleEditor = $em->getRepository("AppBundle:Role")->findOneBy(["name" => "Editor"]);
         /** @var Resource $resourceArticle */ $resourceArticle = $em->getRepository('AppBundle:Resource')->findOneBy(["name" => "Article"]);
         /** @var Action $actionEdit */ $actionEdit = $em->getRepository('AppBundle:Action')->findOneBy(["name" => "Edit"]);
+        /** @var Rule $rule */ $rule = $em->getRepository(Rule::class)->findOneBy(["name" => "EditArticle"]);
 
-        $userJames->addRole($roleEditor);
-        $em->persist($userJames);
-
-        $newRule = new Rule();
-        $newRule->setName('EditArticle');
-        $newRule->setDescription('...');
-        $newRule->setResource($resourceArticle);
-        $newRule->setAction($actionEdit);
-        $newRule->addRole($roleEditor);
-        $em->persist($newRule);
-        $em->flush();
         $client = static::createClient();
 
         $client->request('GET', '/api/rule/isAllowed?' .
@@ -267,12 +249,12 @@ class RuleControllerTest extends FixtureAwareTestCase
         $this->assertEquals(200, $client->getResponse()->getStatusCode(), "Wrong response code");
         $this->assertTrue($content['isAllowed'], "User should be allowed");
 
-
         $client->request('DELETE',
-            '/api/rule/deleteAction?rule_id=' . $newRule->getId(),
+            '/api/rule/deleteAction?rule_id=' . $rule->getId(),
             );
 
         $this->assertEquals(200, $client->getResponse()->getStatusCode(), "Wrong response code");
+        $this->assertCount(0, $em->getRepository(RoleRule::class)->findAll());
 
         $client->request('GET', '/api/rule/isAllowed?' .
             'user_id=' . $userJohn->getId() . '&' .

@@ -4,17 +4,17 @@
 namespace AppBundle\Repository;
 
 
+use AppBundle\Entity\RoleRule;
 use Doctrine\ORM\EntityRepository;
 
 class RoleRuleRepository extends EntityRepository
 {
-    public function deleteAllWithRule($role_id)
+    public function deleteAllWithRule($ruleId)
     {
-        die($role_id);
         return $this->createQueryBuilder('rr')
             ->delete()
-            ->andWhere('rr.role = :roleId')
-            ->setParameter('roleId', $role_id)
+            ->andWhere('rr.rule = :ruleId')
+            ->setParameter('ruleId', $ruleId)
             ->getQuery()
             ->execute();
     }

@@ -30,8 +30,6 @@ class RoleUser
      */
     private $user;
 
-    // Gettre Settre
-
     /**
      * @return integer
      */

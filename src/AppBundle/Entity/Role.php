@@ -40,8 +40,6 @@ class Role
         $this->users = new ArrayCollection();
     }
 
-    ## Getre Setre
-
     /**
      * @return integer
      */

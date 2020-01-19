@@ -18,8 +18,16 @@ class RulesFixture extends Fixture
 {
     public function load(ObjectManager $manager)
     {
-        // Entries for tests
-        // 2 of User, Resource, Role and Action
+        // Resources  = [Image, Article]
+        // Actions    = [View, Edit]
+        //
+        //  User |   Role
+        // ---------------
+        // James |  Editor
+        //  John |  Viewer
+        //
+        // Rule = (Editor, Edit, Article, allowed)
+
         $userJohn = new User();
         $userJohn->setName('John');
         $userJohn->setSurname('Doe');
@@ -40,25 +48,8 @@ class RulesFixture extends Fixture
         $actionView = new Action();
         $actionView->setName('View');
         $actionView->setDescription('View Articles and such');
-        ###
-//        $userJames->addRole($roleEditor);
-        $newRoleUser = new RoleUser();
-        $newRoleUser->setRole($roleEditor);
-        $newRoleUser->setUser($userJames);
-        $manager->persist($newRoleUser);
-        $newRule = new Rule();
-        $newRule->setName('EditArticle');
-        $newRule->setDescription('...');
-        $newRule->setResource($resourceArticle);
-        $newRule->setAction($actionEdit);
 
-        $manager->persist($newRule);
-        $newRuleRole = new RoleRule();
-        $newRuleRole->setAllowed(true);
-        $newRuleRole->setRole($roleEditor);
-        $newRuleRole->setRule($newRule);
-        $manager->persist($newRuleRole);
-        ###
+
         $manager->persist($actionEdit);
         $manager->persist($actionView);
         $manager->persist($roleViewer);
@@ -67,6 +58,30 @@ class RulesFixture extends Fixture
         $manager->persist($resourceImage);
         $manager->persist($userJohn);
         $manager->persist($userJames);
+
+        $newRoleUser = new RoleUser();
+        $newRoleUser->setRole($roleEditor);
+        $newRoleUser->setUser($userJames);
+        $manager->persist($newRoleUser);
+
+        $newRoleUserViewer = new RoleUser();
+        $newRoleUserViewer->setRole($roleViewer);
+        $newRoleUserViewer->setUser($userJohn);
+        $manager->persist($newRoleUserViewer);
+
+        $newRule = new Rule();
+        $newRule->setName('EditArticle');
+        $newRule->setDescription('...');
+        $newRule->setResource($resourceArticle);
+        $newRule->setAction($actionEdit);
+        $manager->persist($newRule);
+
+        $newRuleRole = new RoleRule();
+        $newRuleRole->setAllowed(true);
+        $newRuleRole->setRole($roleEditor);
+        $newRuleRole->setRule($newRule);
+        $manager->persist($newRuleRole);
+
         $manager->flush();
     }
 }
