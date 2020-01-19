@@ -117,7 +117,7 @@ class RuleController extends Controller
         return new Response(null, 200);
     }
 
-    /** TODO
+    /**
      * @Route("/api/rule/editAction", name="api_rules_edit")
      * @Method("PUT")
      * @param Request $request
