@@ -15,7 +15,6 @@ Výstupem by mělo být:
 - Testy na kusy kódu, které uznáte za vhodné, že by měli být otestované
 ***
 ##### TODO / Ideas
-* dokončiť testy
 * zhodnotiť Interface voči ACL service
 * premyslieť voting strategy
 * pridať akcie do ACL service
